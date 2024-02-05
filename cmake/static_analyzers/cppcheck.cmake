@@ -1,5 +1,12 @@
 function(enable_cppcheck)
 
+    find_program(CPPCHECK cppcheck)
+
+    if (NOT CPPCHECK)
+        message(WARNING "[${PROJECT_NAME}] Couldn't find a valid ``cppcheck`` installation.")
+        return()
+    endif()
+
     if(CMAKE_GENERATOR MATCHES ".*Visual Studio.*")
         set(CPPCHECK_TEMPLATE "vs")
     else()

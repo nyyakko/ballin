@@ -1,6 +1,6 @@
 import os
 import sys
 
-BUILD_TYPE = sys.argv[1] if len(sys.argv) >= 2 else 'debug'
+sys.argv.pop(0)
 
-os.system(f'cmake -DCMAKE_BUILD_TYPE={BUILD_TYPE} -G Ninja -B./build/ -S./')
+os.system(f'cmake { " ".join(sys.argv) } -G Ninja -B./build/ -S./')
