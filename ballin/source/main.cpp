@@ -42,14 +42,16 @@ namespace ballin {
             return  (size - distance) / size * 100 > 70;
         });
 
-        if (!similarCommands.empty())
-            std::println(" did you mean:");
-        else
+        if (similarCommands.empty())
             std::print("\n");
-
-        for (auto const command : similarCommands)
+        else
         {
-            std::println("    - {}", command);
+            std::println(" did you mean:");
+
+            for (auto const command : similarCommands)
+            {
+                std::println("    - {}", command);
+            }
         }
     }
 
@@ -107,7 +109,17 @@ class CommandsMap
 public:
     constexpr auto const& map() const { return commands_m; }
     constexpr auto contains(std::string_view commandName) const { return commands_m.contains(commandName.data()); }
-    constexpr auto const& command(std::string_view commandName) const { return commands_m.at(commandName.data()); }
+
+    std::optional<ballin::Command> command(std::string_view commandName) const
+    {
+        if (commands_m.find(commandName.data()) == commands_m.end())
+        {
+            ballin::handle_non_existing_command(commands_m, commandName);
+            return std::nullopt;
+        }
+
+        return commands_m.at(commandName.data());
+    }
 
     void register_command(ballin::Command command)
     {
@@ -135,22 +147,19 @@ public:
             auto const name      = std::ranges::to<std::string>(view.front());
             auto const arguments = std::ranges::to<std::vector<std::string>>(view | std::views::drop(1));
 
-            auto const entry = availableCommands_m.map().find(name);
+            auto maybeCommand = availableCommands_m.command(name);
 
-            if (entry == availableCommands_m.map().end())
+            if (!maybeCommand.has_value())
             {
-                ballin::handle_non_existing_command(availableCommands_m.map(), name);
                 return std::nullopt;
             }
 
-            auto command = entry->second;
-
             for (auto const& argument : arguments)
             {
-                command.push_back_argument(argument);
+                maybeCommand.value().push_back_argument(argument);
             }
 
-            return command;
+            return maybeCommand.value();
         };
 
         auto masterCommand = fnParseCommand(commands.front());
@@ -210,6 +219,7 @@ auto register_commands(ballin::CommandsMap& commands)
     commands.register_command(ballin::Command
     {
         "echo", 1, [] (argument_t arguments) -> return_t {
+            if (arguments.empty()) { return {}; }
             std::println("{}", std::ranges::to<std::string>(arguments | std::views::join_with(' ')));
             return {};
         }
@@ -327,15 +337,14 @@ auto register_commands(ballin::CommandsMap& commands)
     commands.register_command(ballin::Command
     {
         "apply", std::numeric_limits<std::size_t>::max(), [&] (argument_t arguments) -> return_t {
-            auto requestedCommandEntry = commands.map().find(arguments.at(0));
+            auto maybeCommand = commands.command(arguments.at(0));
 
-            if (requestedCommandEntry == commands.map().end())
+            if (!maybeCommand.has_value())
             {
-                ballin::handle_non_existing_command(commands.map(), arguments.at(0));
                 return {};
             }
 
-            auto requestedCommand = requestedCommandEntry->second;
+            auto requestedCommand = maybeCommand.value();
             auto requestedCommandArguments = std::ranges::to<std::deque>(arguments  | std::views::take(requestedCommand.number_of_arguments()) | std::views::drop(1));
 
             std::deque<std::string> result {};
