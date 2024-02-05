@@ -64,7 +64,6 @@ public:
     using return_t    = std::deque<std::string>;
     using signature_t = std::function<return_t(argument_t)>;
 
-public:
     Command() = default;
 
     Command(std::string_view const commandName, std::size_t const numberOfArguments, signature_t const commandAction):
@@ -103,10 +102,9 @@ private:
     std::vector<Command> subcommands_m {};
 };
 
-class CommandsMap
+class Commands
 {
 public:
-    constexpr auto const& map() const { return commands_m; }
     constexpr auto contains(std::string_view const commandName) const { return commands_m.contains(commandName.data()); }
 
     std::optional<Command> command(std::string_view const commandName) const
@@ -133,8 +131,8 @@ private:
 class Interpreter
 {
 public:
-    explicit Interpreter(CommandsMap const& commands):
-        availableCommands_m(commands)
+    explicit Interpreter(Commands const& commands):
+        commands_m(commands)
     {}
 
     void enqueue_command(std::string_view input)
@@ -146,7 +144,7 @@ public:
             auto const name      = std::ranges::to<std::string>(view.front());
             auto const arguments = std::ranges::to<std::vector<std::string>>(view | std::views::drop(1));
 
-            auto maybeCommand = availableCommands_m.command(name);
+            auto maybeCommand = commands_m.command(name);
 
             if (!maybeCommand.has_value()) { return std::nullopt; }
 
@@ -190,12 +188,12 @@ public:
 
 private:
     std::queue<Command> queuedCommands_m {};
-    CommandsMap const& availableCommands_m;
+    Commands const& commands_m;
 };
 
 }
 
-auto register_commands(ballin::CommandsMap& commands)
+auto register_commands(ballin::Commands& commands)
 {
     using argument_t = ballin::Command::argument_t;
     using return_t   = ballin::Command::return_t;
@@ -329,14 +327,14 @@ auto register_commands(ballin::CommandsMap& commands)
     commands.register_command(ballin::Command
     {
         "apply", std::numeric_limits<std::size_t>::max(), [&] (argument_t arguments) -> return_t {
-            auto maybeCommand = commands.command(arguments.at(0));
+            auto const maybeCommand = commands.command(arguments.at(0));
 
             if (!maybeCommand.has_value())
             {
                 return {};
             }
 
-            auto requestedCommand = maybeCommand.value();
+            auto const requestedCommand = maybeCommand.value();
             auto requestedCommandArguments = std::ranges::to<std::deque>(arguments  | std::views::take(requestedCommand.arguments_count()) | std::views::drop(1));
 
             std::deque<std::string> result {};
@@ -360,7 +358,7 @@ auto register_commands(ballin::CommandsMap& commands)
 
 int main()
 {
-    ballin::CommandsMap commands {};
+    ballin::Commands commands {};
     register_commands(commands);
 
     ballin::Interpreter interpreter { commands };
