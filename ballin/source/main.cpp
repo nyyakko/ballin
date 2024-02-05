@@ -12,35 +12,38 @@ namespace ballin {
 
     namespace {
 
+    auto calculate_edit_distance(std::string_view from, std::string_view to)
+    {
+        if (from.empty()) { return to.size(); }
+        if (to.empty()) { return from.size(); }
+
+        auto const fromTail = from.substr(1);
+        auto const toTail   = from.substr(1);
+
+        if (from.front() == to.front())
+        {
+            return calculate_edit_distance(fromTail, toTail);
+        }
+
+        return 1 + std::ranges::min({
+                calculate_edit_distance(fromTail, to),
+                calculate_edit_distance(toTail, from),
+                calculate_edit_distance(fromTail, toTail)
+            });
+    }
+
     void handle_non_existing_command(auto const& availableCommands, auto const& commandName)
     {
         std::print("the command `{}` doesn't exist.", commandName);
 
         auto similarCommands = std::views::keys(availableCommands) | std::views::filter([&] (auto&& value) {
-
-            auto fnCalculateEditDistance = [] (this auto& self, std::string_view from, std::string_view to) {
-                if (from.empty()) return to.size();
-                if (to.empty()) return from.size();
-
-                auto const fromTail = from.substr(1);
-                auto const toTail   = from.substr(1);
-
-                if (from.front() == to.front())
-                {
-                    return self(fromTail, toTail);
-                }
-
-                return 1 + std::ranges::min({ self(fromTail, to), self(toTail, from), self(fromTail, toTail) });
-            };
-
-            auto const distance = fnCalculateEditDistance(commandName, value);
+            auto const distance = calculate_edit_distance(commandName, value);
             auto const size     = std::ranges::max(commandName.size(), value.size());
 
             return  (size - distance) / size * 100 > 70;
         });
 
-        if (similarCommands.empty())
-            std::print("\n");
+        if (similarCommands.empty()) { std::print("\n"); }
         else
         {
             std::println(" did you mean:");
@@ -66,65 +69,65 @@ public:
 
     Command(std::string_view const commandName, std::size_t const numberOfArguments, signature_t const commandAction):
         name_m(commandName),
-        numberOfArguments_m(numberOfArguments),
+        argumentsCount_m(numberOfArguments),
         action_m(commandAction)
     {}
 
-    constexpr auto const& arguments(this auto& self) { return self.arguments_m; }
-    constexpr auto const& name(this auto& self) { return self.name_m; }
-    constexpr auto const& number_of_arguments(this auto& self) { return self.numberOfArguments_m; }
-    constexpr auto& subcommands(this auto& self) { return self.subcommands_m; }
+    constexpr auto const& arguments() const { return arguments_m; }
+    constexpr auto const& name() const { return name_m; }
+    constexpr auto const& arguments_count() const { return argumentsCount_m; }
+    constexpr auto& subcommands() const { return subcommands_m; }
 
     auto push_back_argument(std::string_view const argument) { arguments_m.push_back(argument.data()); }
     auto push_front_argument(std::string_view const argument) { arguments_m.push_front(argument.data()); }
-    auto push_subcommand(ballin::Command&& subcommand) { subcommands_m.push_back(subcommand); }
+    auto push_subcommand(Command&& subcommand) { subcommands_m.push_back(subcommand); }
 
-    return_t operator()(this auto& self) { return std::invoke(self.action_m, self.arguments_m); }
+    return_t operator()() const { return std::invoke(action_m, arguments_m); }
 
-    return_t operator()(this auto& self, argument_t const arguments)
+    return_t operator()(argument_t const arguments) const
     {
-        auto localArguments = self.arguments_m;
+        auto localArguments = arguments_m;
 
         std::ranges::for_each(arguments, [&] (auto&& argument) {
             localArguments.push_back(argument);
         });
 
-        return std::invoke(self.action_m, localArguments);
+        return std::invoke(action_m, localArguments);
     }
 
 private:
     std::string name_m {};
     argument_t arguments_m {};
-    std::size_t numberOfArguments_m {};
+    std::size_t argumentsCount_m {};
     signature_t action_m {};
-    std::vector<ballin::Command> subcommands_m {};
+    std::vector<Command> subcommands_m {};
 };
 
 class CommandsMap
 {
 public:
-    constexpr auto const& map(this auto& self) { return self.commands_m; }
-    constexpr auto contains(this auto& self, std::string_view const commandName) { return self.commands_m.contains(commandName.data()); }
+    constexpr auto const& map() const { return commands_m; }
+    constexpr auto contains(std::string_view const commandName) const { return commands_m.contains(commandName.data()); }
 
-    std::optional<ballin::Command> command(this auto& self, std::string_view const commandName)
+    std::optional<Command> command(std::string_view const commandName) const
     {
-        if (self.commands_m.find(commandName.data()) == self.commands_m.end())
+        if (commands_m.find(commandName.data()) == commands_m.end())
         {
-            ballin::handle_non_existing_command(self.commands_m, commandName);
+            handle_non_existing_command(commands_m, commandName);
             return std::nullopt;
         }
 
-        return self.commands_m.at(commandName.data());
+        return commands_m.at(commandName.data());
     }
 
-    void register_command(this CommandsMap& self, ballin::Command command)
+    void register_command(Command command)
     {
-        assert(self.commands_m.contains(command.name()) != true);
-        self.commands_m[command.name()] = command;
+        assert(commands_m.contains(command.name()) != true);
+        commands_m[command.name()] = command;
     }
 
 private:
-    std::unordered_map<std::string, ballin::Command> commands_m {};
+    std::unordered_map<std::string, Command> commands_m {};
 };
 
 class Interpreter
@@ -138,17 +141,14 @@ public:
     {
         auto commands = input | std::views::split(' ') | std::views::chunk_by([] (auto, auto rhs) { return rhs.front() != '|'; });
 
-        auto fnParseCommand = [this] (auto input) -> std::optional<ballin::Command> {
+        auto fnParseCommand = [this] (auto input) -> std::optional<Command> {
             auto view            = input | std::views::drop_while([] (auto value) { return value.front()  == '|'; });
             auto const name      = std::ranges::to<std::string>(view.front());
             auto const arguments = std::ranges::to<std::vector<std::string>>(view | std::views::drop(1));
 
             auto maybeCommand = availableCommands_m.command(name);
 
-            if (!maybeCommand.has_value())
-            {
-                return std::nullopt;
-            }
+            if (!maybeCommand.has_value()) { return std::nullopt; }
 
             for (auto const& argument : arguments)
             {
@@ -165,9 +165,7 @@ public:
         for (auto const& view : commands | std::views::drop(1))
         {
             auto subcommand = fnParseCommand(view);
-
             if (!subcommand.has_value()) { return; }
-
             masterCommand.value().push_subcommand(std::move(subcommand.value()));
         }
 
@@ -179,8 +177,7 @@ public:
         while (!queuedCommands_m.empty())
         {
             auto const& masterCommand = queuedCommands_m.front();
-
-            auto operationResult = masterCommand();
+            auto operationResult      = masterCommand();
 
             for (auto const& subcommand : masterCommand.subcommands())
             {
@@ -192,9 +189,8 @@ public:
     }
 
 private:
-    std::queue<ballin::Command> queuedCommands_m {};
-    ballin::CommandsMap const& availableCommands_m;
-
+    std::queue<Command> queuedCommands_m {};
+    CommandsMap const& availableCommands_m;
 };
 
 }
@@ -341,11 +337,11 @@ auto register_commands(ballin::CommandsMap& commands)
             }
 
             auto requestedCommand = maybeCommand.value();
-            auto requestedCommandArguments = std::ranges::to<std::deque>(arguments  | std::views::take(requestedCommand.number_of_arguments()) | std::views::drop(1));
+            auto requestedCommandArguments = std::ranges::to<std::deque>(arguments  | std::views::take(requestedCommand.arguments_count()) | std::views::drop(1));
 
             std::deque<std::string> result {};
 
-            for (auto const& argument : arguments | std::views::drop(requestedCommand.number_of_arguments()))
+            for (auto const& argument : arguments | std::views::drop(requestedCommand.arguments_count()))
             {
                 requestedCommandArguments.push_front(argument);
 

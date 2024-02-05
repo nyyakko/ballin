@@ -3,7 +3,7 @@ add_subdirectory(include/${PROJECT_NAME})
 
 add_executable(${PROJECT_NAME} "${ballin_SourceFiles}")
 
-# enable_static_analyzers(${PROJECT_NAME} ON)
+enable_static_analyzers(${PROJECT_NAME} ON)
 
 target_include_directories(${PROJECT_NAME} 
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" 
