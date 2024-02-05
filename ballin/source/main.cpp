@@ -12,33 +12,30 @@ namespace ballin {
 
     namespace {
 
-    auto calculate_edit_distance(std::string_view from, std::string_view to)
-    {
-        if (from.empty()) return to.size();
-        if (to.empty()) return from.size();
-
-        auto const fromTail = from.substr(1);
-        auto const toTail   = from.substr(1);
-
-        if (from.front() == to.front())
-        {
-            return calculate_edit_distance(fromTail, toTail);
-        }
-
-        return 1 + std::ranges::min({
-            calculate_edit_distance(fromTail, to),
-            calculate_edit_distance(toTail, from),
-            calculate_edit_distance(fromTail, toTail)
-        });
-    }
-
     void handle_non_existing_command(auto const& availableCommands, auto const& commandName)
     {
         std::print("the command `{}` doesn't exist.", commandName);
 
         auto similarCommands = std::views::keys(availableCommands) | std::views::filter([&] (auto&& value) {
-            auto const distance = calculate_edit_distance(commandName, value);
+
+            auto fnCalculateEditDistance = [] (this auto& self, std::string_view from, std::string_view to) {
+                if (from.empty()) return to.size();
+                if (to.empty()) return from.size();
+
+                auto const fromTail = from.substr(1);
+                auto const toTail   = from.substr(1);
+
+                if (from.front() == to.front())
+                {
+                    return self(fromTail, toTail);
+                }
+
+                return 1 + std::ranges::min({ self(fromTail, to), self(toTail, from), self(fromTail, toTail) });
+            };
+
+            auto const distance = fnCalculateEditDistance(commandName, value);
             auto const size     = std::ranges::max(commandName.size(), value.size());
+
             return  (size - distance) / size * 100 > 70;
         });
 
@@ -73,26 +70,26 @@ public:
         action_m(commandAction)
     {}
 
-    constexpr auto const& arguments() const { return arguments_m; }
-    constexpr auto const& number_of_arguments() const { return numberOfArguments_m; }
-    constexpr auto& subcommands() const { return subcommands_m; }
-    constexpr auto const& name() const { return name_m; }
+    constexpr auto const& arguments(this auto& self) { return self.arguments_m; }
+    constexpr auto const& name(this auto& self) { return self.name_m; }
+    constexpr auto const& number_of_arguments(this auto& self) { return self.numberOfArguments_m; }
+    constexpr auto& subcommands(this auto& self) { return self.subcommands_m; }
 
     auto push_back_argument(std::string_view const argument) { arguments_m.push_back(argument.data()); }
     auto push_front_argument(std::string_view const argument) { arguments_m.push_front(argument.data()); }
     auto push_subcommand(ballin::Command&& subcommand) { subcommands_m.push_back(subcommand); }
 
-    return_t operator()() const { return std::invoke(action_m, arguments_m); }
+    return_t operator()(this auto& self) { return std::invoke(self.action_m, self.arguments_m); }
 
-    return_t operator()(argument_t const arguments) const
+    return_t operator()(this auto& self, argument_t const arguments)
     {
-        auto localArguments = arguments_m;
+        auto localArguments = self.arguments_m;
 
         std::ranges::for_each(arguments, [&] (auto&& argument) {
             localArguments.push_back(argument);
         });
 
-        return std::invoke(action_m, localArguments);
+        return std::invoke(self.action_m, localArguments);
     }
 
 private:
@@ -100,31 +97,30 @@ private:
     argument_t arguments_m {};
     std::size_t numberOfArguments_m {};
     signature_t action_m {};
-
     std::vector<ballin::Command> subcommands_m {};
 };
 
 class CommandsMap
 {
 public:
-    constexpr auto const& map() const { return commands_m; }
-    constexpr auto contains(std::string_view commandName) const { return commands_m.contains(commandName.data()); }
+    constexpr auto const& map(this auto& self) { return self.commands_m; }
+    constexpr auto contains(this auto& self, std::string_view const commandName) { return self.commands_m.contains(commandName.data()); }
 
-    std::optional<ballin::Command> command(std::string_view commandName) const
+    std::optional<ballin::Command> command(this auto& self, std::string_view const commandName)
     {
-        if (commands_m.find(commandName.data()) == commands_m.end())
+        if (self.commands_m.find(commandName.data()) == self.commands_m.end())
         {
-            ballin::handle_non_existing_command(commands_m, commandName);
+            ballin::handle_non_existing_command(self.commands_m, commandName);
             return std::nullopt;
         }
 
-        return commands_m.at(commandName.data());
+        return self.commands_m.at(commandName.data());
     }
 
-    void register_command(ballin::Command command)
+    void register_command(this CommandsMap& self, ballin::Command command)
     {
-        assert(commands_m.contains(command.name()) != true);
-        commands_m[command.name()] = command;
+        assert(self.commands_m.contains(command.name()) != true);
+        self.commands_m[command.name()] = command;
     }
 
 private:
