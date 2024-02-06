@@ -68,36 +68,40 @@ public:
 
     Command(std::string_view const commandName, std::size_t const numberOfArguments, signature_t const commandAction):
         name_m(commandName),
-        argumentsCount_m(numberOfArguments),
+        expectedNumberOfArguments_m(numberOfArguments),
         action_m(commandAction)
     {}
 
-    constexpr auto const& arguments() const { return arguments_m; }
+    constexpr auto const& arguments_stack() const { return argumentsStack_m; }
     constexpr auto const& name() const { return name_m; }
-    constexpr auto const& arguments_count() const { return argumentsCount_m; }
+    constexpr auto const& expected_number_of_arguments() const { return expectedNumberOfArguments_m; }
     constexpr auto& subcommands() const { return subcommands_m; }
+    constexpr auto& subcommands() { return subcommands_m; }
 
-    auto push_back_argument(std::string_view const argument) { arguments_m.push_back(argument.data()); }
-    auto push_front_argument(std::string_view const argument) { arguments_m.push_front(argument.data()); }
+    auto push_back_argument(std::string_view const argument) { argumentsStack_m.push_back(argument.data()); }
+    auto push_front_argument(std::string_view const argument) { argumentsStack_m.push_front(argument.data()); }
     auto push_subcommand(Command&& subcommand) { subcommands_m.push_back(subcommand); }
 
-    return_t operator()() const { return std::invoke(action_m, arguments_m); }
-
-    return_t operator()(argument_t const arguments) const
+    return_t operator()() const
     {
-        auto localArguments = arguments_m;
+        return std::invoke(action_m, argumentsStack_m);
+    }
 
-        std::ranges::for_each(arguments, [&] (auto&& argument) {
-            localArguments.push_back(argument);
+    return_t operator()(std::deque<std::string> argumentsStack) const
+    {
+        auto localArgumentsStack = argumentsStack_m;
+
+        std::ranges::for_each(argumentsStack, [&] (auto&& argument) {
+            localArgumentsStack.push_back(argument);
         });
 
-        return std::invoke(action_m, localArguments);
+        return std::invoke(action_m, localArgumentsStack);
     }
 
 private:
     std::string name_m {};
-    argument_t arguments_m {};
-    std::size_t argumentsCount_m {};
+    argument_t argumentsStack_m {};
+    std::size_t expectedNumberOfArguments_m {};
     signature_t action_m {};
     std::vector<Command> subcommands_m {};
 };
@@ -175,7 +179,7 @@ public:
         while (!queuedCommands_m.empty())
         {
             auto const& masterCommand = queuedCommands_m.front();
-            auto operationResult      = masterCommand();
+            auto operationResult = masterCommand();
 
             for (auto const& subcommand : masterCommand.subcommands())
             {
@@ -209,7 +213,6 @@ auto register_commands(ballin::Commands& commands)
     commands.register_command(ballin::Command
     {
         "echo", 1, [] (argument_t arguments) -> return_t {
-            if (arguments.empty()) { return {}; }
             std::println("{}", std::ranges::to<std::string>(arguments | std::views::join_with(' ')));
             return {};
         }
@@ -277,6 +280,21 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
+        "pow", 2, [] (argument_t arguments) -> return_t {
+            float lhs {};
+            std::stringstream { arguments.at(0) } >> lhs;
+            float rhs {};
+            std::stringstream { arguments.at(1) } >> rhs;
+
+            std::stringstream stream {};
+            stream << std::pow(lhs, rhs);
+
+            return { stream.str() };
+        }
+    });
+
+    commands.register_command(ballin::Command
+    {
         "hex", 1, [] (argument_t arguments) -> return_t {
             std::size_t value {};
             std::stringstream { arguments.at(0) } >> value;
@@ -334,12 +352,12 @@ auto register_commands(ballin::Commands& commands)
                 return {};
             }
 
-            auto const requestedCommand = maybeCommand.value();
-            auto requestedCommandArguments = std::ranges::to<std::deque>(arguments  | std::views::take(requestedCommand.arguments_count()) | std::views::drop(1));
+            auto requestedCommand = maybeCommand.value();
+            auto requestedCommandArguments = std::ranges::to<std::deque>(arguments | std::views::take(requestedCommand.expected_number_of_arguments()) | std::views::drop(1));
 
             std::deque<std::string> result {};
 
-            for (auto const& argument : arguments | std::views::drop(requestedCommand.arguments_count()))
+            for (auto const& argument : arguments | std::views::drop(requestedCommand.expected_number_of_arguments()))
             {
                 requestedCommandArguments.push_front(argument);
 
