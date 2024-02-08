@@ -25,20 +25,13 @@ function(enable_clang_tidy)
         --extra-arg=-Wno-unused-command-line-argument
         -warnings-as-errors=*
         --use-color
-        --p)
+        --p
+    )
 
-    if(NOT "${CMAKE_CXX_STANDARD}" STREQUAL "")
-        if("${CLANG_TIDY_OPTIONS_DRIVER_MODE}" STREQUAL "cl")
-            set(CLANG_TIDY_OPTIONS ${CLANG_TIDY_OPTIONS} -extra-arg=/std:c++${CMAKE_CXX_STANDARD})
-        else()
-            set(CLANG_TIDY_OPTIONS ${CLANG_TIDY_OPTIONS} -extra-arg=-std=c++${CMAKE_CXX_STANDARD})
-        endif()
-    elseif(NOT "${CMAKE_C_STANDARD}" STREQUAL "")
-        if("${CLANG_TIDY_OPTIONS_DRIVER_MODE}" STREQUAL "cl")
-            set(CLANG_TIDY_OPTIONS ${CLANG_TIDY_OPTIONS} -extra-arg=/std:c${CMAKE_C_STANDARD})
-        else()
-            set(CLANG_TIDY_OPTIONS ${CLANG_TIDY_OPTIONS} -extra-arg=-std=c${CMAKE_C_STANDARD})
-        endif()
+    if("${CLANG_TIDY_OPTIONS_DRIVER_MODE}" STREQUAL "cl")
+        set(CLANG_TIDY_OPTIONS ${CLANG_TIDY_OPTIONS} -extra-arg=/std:c++23)
+    else()
+        set(CLANG_TIDY_OPTIONS ${CLANG_TIDY_OPTIONS} -extra-arg=-std=c++23)
     endif()
 
     set_target_properties(${PROJECT_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_OPTIONS}")

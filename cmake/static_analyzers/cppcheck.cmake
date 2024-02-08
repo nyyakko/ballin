@@ -14,7 +14,7 @@ function(enable_cppcheck)
     endif()
 
     if("${CPPCHECK_OPTIONS}" STREQUAL "")
-        set(CMAKE_CXX_CPPCHECK ${CPPCHECK}
+        set(CPPCHECK_OPTIONS ${CPPCHECK}
             --template=${CPPCHECK_TEMPLATE}
             --enable=style,performance,warning,portability
             --inline-suppr
@@ -25,18 +25,16 @@ function(enable_cppcheck)
             --suppress=syntaxError
             --suppress=preprocessorErrorDirective
             --inconclusive
-            --error-exitcode=2)
+            --error-exitcode=2
+            --std=c++23
+        )
     else()
-        set(CMAKE_CXX_CPPCHECK ${CPPCHECK} --template=${CPPCHECK_TEMPLATE} ${CPPCHECK_OPTIONS})
+        set(CPPCHECK_OPTIONS --template=${CPPCHECK_TEMPLATE} ${CPPCHECK_OPTIONS})
     endif()
 
     if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
-        set(CMAKE_CXX_CPPCHECK ${CMAKE_CXX_CPPCHECK} --platform=win64)
+        set(CPPCHECK_OPTIONS ${CPPCHECK} ${CPPCHECK_OPTIONS} --platform=win64)
     endif()
 
-    if(NOT "${CMAKE_CXX_STANDARD}" STREQUAL "")
-        set(CMAKE_CXX_CPPCHECK ${CMAKE_CXX_CPPCHECK} CACHE INTERNAL --std=c++${CMAKE_CXX_STANDARD})
-    elseif(NOT "${CMAKE_C_STANDARD}" STREQUAL "")
-        set(CMAKE_C_CPPCHECK ${CMAKE_C_CPPCHECK} CACHE INTERNAL --std=c${CMAKE_C_STANDARD})
-    endif()
+    set_target_properties(${PROJECT_NAME} PROPERTIES CXX_CPPCHECK "${CPPCHECK_OPTIONS}")
 endfunction()

@@ -60,9 +60,9 @@ namespace ballin {
 class Command
 {
 public:
-    using argument_t  = std::deque<std::string>;
+    using arguments_t = std::deque<std::string>;
     using return_t    = std::deque<std::string>;
-    using signature_t = std::function<return_t(argument_t)>;
+    using signature_t = std::function<return_t(arguments_t)>;
 
     Command() = default;
 
@@ -100,7 +100,7 @@ public:
 
 private:
     std::string name_m {};
-    argument_t argumentsStack_m {};
+    arguments_t argumentsStack_m {};
     std::size_t expectedNumberOfArguments_m {};
     signature_t action_m {};
     std::vector<Command> subcommands_m {};
@@ -199,12 +199,12 @@ private:
 
 auto register_commands(ballin::Commands& commands)
 {
-    using argument_t = ballin::Command::argument_t;
-    using return_t   = ballin::Command::return_t;
+    using arguments_t = ballin::Command::arguments_t;
+    using return_t    = ballin::Command::return_t;
 
     commands.register_command(ballin::Command
     {
-        "quit", 0, [] (argument_t) -> return_t {
+        "quit", 0, [] (arguments_t) -> return_t {
             std::exit(EXIT_SUCCESS);
             return {};
         }
@@ -212,7 +212,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "echo", 1, [] (argument_t arguments) -> return_t {
+        "echo", 1, [] (arguments_t arguments) -> return_t {
             std::println("{}", std::ranges::to<std::string>(arguments | std::views::join_with(' ')));
             return {};
         }
@@ -220,7 +220,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "add", 2, [] (argument_t arguments) -> return_t {
+        "add", 2, [] (arguments_t arguments) -> return_t {
             float lhs {};
             std::stringstream { arguments.at(0) } >> lhs;
             float rhs {};
@@ -235,7 +235,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "sub", 2, [] (argument_t arguments) -> return_t {
+        "sub", 2, [] (arguments_t arguments) -> return_t {
             float lhs {};
             std::stringstream { arguments.at(0) } >> lhs;
             float rhs {};
@@ -250,7 +250,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "mul", 2, [] (argument_t arguments) -> return_t {
+        "mul", 2, [] (arguments_t arguments) -> return_t {
             float lhs {};
             std::stringstream { arguments.at(0) } >> lhs;
             float rhs {};
@@ -265,7 +265,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "div", 2, [] (argument_t arguments) -> return_t {
+        "div", 2, [] (arguments_t arguments) -> return_t {
             float lhs {};
             std::stringstream { arguments.at(0) } >> lhs;
             float rhs {};
@@ -280,7 +280,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "pow", 2, [] (argument_t arguments) -> return_t {
+        "pow", 2, [] (arguments_t arguments) -> return_t {
             float lhs {};
             std::stringstream { arguments.at(0) } >> lhs;
             float rhs {};
@@ -295,7 +295,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "hex", 1, [] (argument_t arguments) -> return_t {
+        "hex", 1, [] (arguments_t arguments) -> return_t {
             std::size_t value {};
             std::stringstream { arguments.at(0) } >> value;
 
@@ -308,7 +308,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "bin", 1, [] (argument_t arguments) -> return_t {
+        "bin", 1, [] (arguments_t arguments) -> return_t {
             std::size_t value {};
             std::stringstream { arguments.at(0) } >> value;
 
@@ -323,7 +323,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "iota", 2, [] (argument_t arguments) -> return_t {
+        "iota", 2, [] (arguments_t arguments) -> return_t {
             std::size_t minimum {};
             std::stringstream { arguments.at(0) } >> minimum;
             std::size_t maximum {};
@@ -344,7 +344,7 @@ auto register_commands(ballin::Commands& commands)
 
     commands.register_command(ballin::Command
     {
-        "apply", std::numeric_limits<std::size_t>::max(), [&] (argument_t arguments) -> return_t {
+        "apply", std::numeric_limits<std::size_t>::max(), [&] (arguments_t arguments) -> return_t {
             auto const maybeCommand = commands.command(arguments.at(0));
 
             if (!maybeCommand.has_value())
@@ -352,7 +352,7 @@ auto register_commands(ballin::Commands& commands)
                 return {};
             }
 
-            auto requestedCommand = maybeCommand.value();
+            auto requestedCommand          = maybeCommand.value();
             auto requestedCommandArguments = std::ranges::to<std::deque>(arguments | std::views::take(requestedCommand.expected_number_of_arguments()) | std::views::drop(1));
 
             std::deque<std::string> result {};
