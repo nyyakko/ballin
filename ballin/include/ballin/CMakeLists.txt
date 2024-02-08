@@ -1,3 +1,5 @@
+add_subdirectory(math)
+
 set(DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(ballin_HeaderFiles ${ballin_HeaderFiles}

@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <sstream>
 
+#include "math/Eval.hpp"
+
 namespace ballin {
 
     namespace {
@@ -288,6 +290,22 @@ auto register_commands(ballin::Commands& commands)
 
             std::stringstream stream {};
             stream << std::pow(lhs, rhs);
+
+            return { stream.str() };
+        }
+    });
+
+    commands.register_command(ballin::Command
+    {
+        "eval", 1, [] (arguments_t arguments) -> return_t {
+            auto const expression = std::ranges::to<std::string>(arguments | std::views::join_with(' '));
+
+            ballin::math::Lexer expressionLexer { expression };
+
+            auto const parsedExpression = ballin::math::parse_expression(expressionLexer.tokenize());
+
+            std::stringstream stream {};
+            stream << ballin::math::evaluate_expression(parsedExpression);
 
             return { stream.str() };
         }
